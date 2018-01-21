@@ -1,5 +1,8 @@
-# SKLOE OUT FILE READER
-Developed by Xiaoxian Guo and Zhichao Fang
+# SKLOE PyDAS
+Developed by Xiaoxian Guo and Zhichao Fang (Copyright &copy; 2018)
+
+A python implemented package for experiment data analysis (FDAS in Python!).
+
 ### 使用方法
 
 1. 下载 libskloe.py 到本地目录
@@ -33,9 +36,7 @@ FDAS主要对单个工况数据进行处理，我们希望基于python开发进�
 ...
 
 
-目前程序托管于GitHub，主页为：https://github.com/XiaoxG/skloe_outfile
-
-HELP：https://nbviewer.jupyter.org/github/XiaoxG/skloe_outfile/blob/master/readme.ipynb
+目前程序托管于GitHub，主页为：https://github.com/JosephFang/pydas
 
 目前拥有以下功能：
 
