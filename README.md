@@ -1,14 +1,19 @@
 # SKLOE PyDAS
-Developed by Xiaoxian Guo and Zhichao Fang (Copyright &copy; 2018)
 
 A python implemented package for experiment data analysis (FDAS in Python!).
 
-### 使用方法
+Copyright &copy; 2018
 
-1. 下载 libskloe.py 到本地目录
-2. 在site-packages添加一个路径文件，如libskloe.pth，必须以.pth为后缀，写上保存 libskloe.py 的本地所在的目录名称。
-3. 在编写python脚本时，使用 from libskloe import Skloe_OutFile
-4. 更多功能请参见：https://nbviewer.jupyter.org/github/XiaoxG/skloe_outfile/blob/master/readme.ipynb
+**Contributors:**
+* Zhichao Fang
+* Xiaoxian Guo
+
+## 使用方法
+
+1. git clone https://github.com/JosephFang/pydas.git 至本地目录
+2. 在site-packages添加一个路径文件，如pydas.pth，必须以.pth为后缀，写上保存 pydas.py 的本地所在的目录名称。
+3. 在编写python脚本时，使用 from casedata import *
+4. Get Started: example.ipynb
 
 注意事项：
 
@@ -18,8 +23,7 @@ import sys
 
 sys.path
 
-
-### 简介
+## 简介
 
 基于python3.6 (Anaconda) 环境开发，主要针对FDAS处理后的数据，进行进一步后处理，实现数据读入，数据处理，数据输出。
 
@@ -34,7 +38,6 @@ FDAS主要对单个工况数据进行处理，我们希望基于python开发进�
 - 应用于自动校波、校风
 
 ...
-
 
 目前程序托管于GitHub，主页为：https://github.com/JosephFang/pydas
 
