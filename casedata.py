@@ -178,7 +178,7 @@ class CaseData:
             data_temp = data_buf[n].astype('float64')
             for m in range(self.chN):
                 data_temp[:, m] *= chCoef[m]
-            index = np.arange(1, segInfo['N sample'].iloc[n] + 1) / self.fs
+            index = np.arange(segInfo['N sample'].iloc[n]) / self.fs
             self.data[n] = pd.DataFrame(
                 data_temp, index=index, columns=chName, dtype='float64')
 
