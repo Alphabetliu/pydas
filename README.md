@@ -1,6 +1,6 @@
 # SKLOE PyDAS
 
-A python implemented package for experiment data analysis (FDAS in Python!).
+A python package for experiment data analysis (FDAS in Python!).
 
 Copyright &copy; 2018
 
