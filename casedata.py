@@ -19,21 +19,20 @@ class CaseData:
 
     def __init__(self, filename, lam=1, sseg='all'):
         """
-        @param: filename - input file name
+        @param: filename - input *.out file name
         @param: lam      - scale ratio
-        @param: sSeg    - selected segment
-        @param: debug    - if debug
+        @param: sseg     - selected segment number
         """
 
         if os.path.exists(filename):
             self.filename = filename
         else:
-            warnings.warn(
-                "File {:s} does not exist. Breaking".format(filename))
+            print(
+                "Error: File {:s} does not exist. Breaking!".format(filename))
             sys.exit()
 
         self.lam = lam
-        self.fs = 0
+        self.fs = 1
         self.chN = 0
         self.segN = 0
         self.scale = 'model'
@@ -41,9 +40,9 @@ class CaseData:
             print("Error: Input 'sseg' is illegal (should be int or 'all').")
             raise
 
-        self._read(sseg)
+        self.read(sseg)
 
-    def _read(self, sseg):
+    def read(self, sseg):
         """read the *.out file"""
 
         print('Reading file {}...'.format(self.filename), end='')
@@ -58,43 +57,30 @@ class CaseData:
             tmp = struct.unpack(fmtstr, buf)
             index, self.chN, self.fs, self.segN =\
                 tmp[0], tmp[1], tmp[3], tmp[4]
-            dateMonth, dateDay = tmp[5].decode('utf-8'), tmp[6].decode('utf-8')
+            datemm, datedd = tmp[5].decode('utf-8'), tmp[6].decode('utf-8')
             # date mm/dd
-            self.date = '{0:2s}/{1:2s}'.format(dateMonth, dateDay)
+            self.date = '{:2s}/{:2s}'.format(datemm, datedd)
             # global description
             self.desc = tmp[7].decode('utf-8').rstrip()
 
             # read the name of each channel
-            fmtstr = self.chN * '16s'
-            buf = struct.unpack(fmtstr, fIn.read(self.chN * 16))
-            chName = []
-            chIdx = []
-            for idx, item in enumerate(buf):
-                chName.append(buf[idx].decode('utf-8').rstrip())
-                chIdx.append('Ch{0:02d}'.format(idx + 1))
+            chName = [namei.decode('utf-8').rstrip() for namei in
+                      struct.unpack(self.chN * '16s', fIn.read(self.chN * 16))]
             # read the unit of each channel
-            fmtstr = self.chN * '4s'
-            buf = struct.unpack(fmtstr, fIn.read(self.chN * 4))
-            chUnit = []
-            for idx, item in enumerate(buf):
-                chUnit.append(buf[idx].decode('utf-8').rstrip())
-
+            chUnit = [uniti.decode('utf-8').rstrip() for uniti in
+                      struct.unpack(self.chN * '4s', fIn.read(self.chN * 4))]
             # read the coefficient of each channel
-            fmtstr = '=' + self.chN * 'f'
-            buf = fIn.read(self.chN * 4)
-            chCoef = struct.unpack(fmtstr, buf)
+            chCoef = struct.unpack('=' + self.chN * 'f',
+                                   fIn.read(self.chN * 4))
 
             # read the id of each channel, if there are
             if (index < -1):
-                fmtstr = '=' + self.chN * 'h'
-                buf = fIn.read(self.chN * 2)
-                chIdx = struct.unpack(fmtstr, buf)
+                chIdx = struct.unpack(
+                    '=' + self.chN * 'h', fIn.read(self.chN * 2))
             else:
                 chIdx = list(range(1, self.chN + 1))
 
-            chInfoDict = {'Index': chIdx,
-                          'Name': chName,
-                          'Unit': chUnit,
+            chInfoDict = {'Index': chIdx, 'Name': chName, 'Unit': chUnit,
                           'Coef': chCoef}
 
             column = ['Name', 'Unit', 'Coef']
@@ -103,7 +89,7 @@ class CaseData:
             # sampNum[i] is the number of samples in segment i
             sampNum = [0 for i in range(self.segN)]
             # segInfo[i] is the information of the segment i
-            # [seg_index, segChN, sampNum, ds, s, min, h, desc]
+            # [segType, segChN, sampNum, ds, s, min, h, desc]
             segInfo = [[] for i in range(self.segN)]
             # seg_satistic[i] is the satistical values of the segment i
             # [mean[segChN], std[segChN], max[segChN], min[segChN]]
@@ -125,7 +111,7 @@ class CaseData:
                 segInfo[iseg] = struct.unpack(fmtstr, buf)
 
                 segChN = segInfo[iseg][1]
-                sampNum[iseg] = segInfo[iseg][2] - 5
+                sampNum[iseg] = segInfo[iseg][2] - 5  # NOTE -5 here
                 note[iseg] = segInfo[iseg][11].decode('utf-8').rstrip()
 
                 # read the statiscal values of each channel
@@ -165,37 +151,38 @@ class CaseData:
 
         # convert the statistics into data matrix
         self.segStatis = []
-        for n in range(self.segN):
+        for iseg in range(self.segN):
             segStatis_temp = np.reshape(
-                np.array(segStatis[n], dtype='float64'), (4, self.chN)).transpose()
+                np.array(segStatis[iseg], dtype='float64'),
+                (4, self.chN)).transpose()
             for m in range(self.chN):
                 segStatis_temp[m] *= chCoef[m]
             column = ['Mean', 'STD', 'Max', 'Min']
             self.segStatis.append(pd.DataFrame(
                 segStatis_temp, index=chName, columns=column))
-            self.segStatis[n]['Unit'] = chUnit
+            self.segStatis[iseg]['Unit'] = chUnit
 
         # convert the dataRaw into data matrix
         self.data = [[] for i in range(self.segN)]
-        for n in range(self.segN):
-            data_temp = dataRaw[n].astype('float64')
+        for iseg in range(self.segN):
+            data_temp = dataRaw[iseg].astype('float64')
             for m in range(self.chN):
                 data_temp[:, m] *= chCoef[m]
-            index = np.arange(segInfo['N sample'].iloc[n]) / self.fs
-            self.data[n] = pd.DataFrame(
+            index = np.arange(segInfo['N sample'].iloc[iseg]) / self.fs
+            self.data[iseg] = pd.DataFrame(
                 data_temp, index=index, columns=chName, dtype='float64')
 
         if sseg == 'all':
             self.segInfo = segInfo
         else:
-            self.data = [self.data[sseg]]
-            self.segInfo = segInfo[sseg:sseg + 1]
             self.segN = 1
+            self.segInfo = segInfo[sseg:sseg + 1]
             self.segStatis = [self.segStatis[sseg]]
+            self.data = [self.data[sseg]]
 
         print(" Done!")
 
-    def _write(self, filename, sseg=0):
+    def write(self, filename, sseg='all', ch='all'):
         """write the *.out file"""
 
         if not filename.endswith('.out'):
@@ -206,8 +193,11 @@ class CaseData:
             sseg = list(range(self.segN))
         elif type(sseg) is int:
             sseg = [sseg]
+        else:
+            warnings.warn("Unsupported segment number, using 'all'.")
+            sseg = list(range(self.segN))
 
-        print('Saving segment(s) No. {} in file {}'.format(sseg, filename))
+        print('Saving segment(s) No. {} to file {}'.format(sseg, filename))
 
         with open(filename, 'wb') as fOut:
             # file head
@@ -280,6 +270,49 @@ class CaseData:
                     1, -1), self.segInfo['N sample'][iseg], axis=0)).astype(np.int16)
                 fOut.write(raw_.tobytes())
 
+    def addCh(self, name, unit, series):
+        """Add a channel to the case data
+        (currently only one-segment data is supported)."""
+        if self.segN > 1:
+            warnings.warn(
+                "Only support one-segment data file. The data remain unchanged.")
+            return
+
+        # check if the data size equals the number of samples
+        if self.segInfo.iloc[0]['N sample'] != len(series):
+            warnings.warn("DIFFERENT data size! The data remain unchanged.")
+            return
+
+        if self.scale == 'model':
+            self.chInfo.loc[max(self.chInfo.index) + 1] = [name, unit, 1]
+        else:
+            self.chInfo.loc[max(self.chInfo.index) + 1] = [name, unit, 1, 1, 1, 1]
+        self.segStatis[0].loc[name] = [np.mean(series), np.std(series),
+                                       np.amax(series), np.amin(series), unit]
+        self.data[0].insert(self.chN, name, series)
+        self.chN += 1
+
+    def delCh(self, name):
+        """Drop channel(s) of the case data"""
+
+        if name not in self.chInfo.Name.values:
+            print('Channel name does not exist, returning.')
+            return
+
+        self.chInfo = self.chInfo.drop(self.chInfo.index[self.chInfo.Name == name])
+        for iseg in range(self.segN):
+            self.segStatis[iseg] = self.segStatis[iseg].drop(name)
+            del self.data[iseg][name]
+
+        print(self.chInfo)
+        print(self.segStatis[0])
+        print(self.data[0])
+        # update the number of channels
+        if self.data[0].shape[1] == self.chInfo.shape[0] == self.segStatis[0].shape[0]:
+            self.chN = self.chInfo.shape[0]
+        else:
+            raise ValueError("Number of channels does not match!")
+
     def pInfo(self, printTxt=False, printExcel=False):
         print('-' * 50)
         print('Segment: {0:2d}; Channel: {1:3d}; Sampling frequency: {2:4d}Hz.'.format(
@@ -295,9 +328,7 @@ class CaseData:
             fname = path + '_Info.xlsx'
             self.segInfo.to_excel(fname, sheet_name='Sheet01')
 
-    def pChInfo(self,
-                printTxt=False,
-                printExcel=False):
+    def pChInfo(self, printTxt=False, printExcel=False):
         print('-' * 50)
         print(self.chInfo.to_string(justify='center'))
         print('-' * 50)
@@ -318,8 +349,7 @@ class CaseData:
                 os.path.splitext(self.filename)[0] + '_ChInfo.xlsx'
             self.chInfo.to_excel(file_name, sheet_name='Sheet01')
 
-    def to_dat(self,
-               sSeg='all'):
+    def to_dat(self, sseg='all'):
         def writefile(self, idx):
             path = os.getcwd()
             file_name = path + '/' + \
@@ -339,20 +369,18 @@ class CaseData:
             infoFile.close()
             print('Export: {0:s}'.format(file_name))
 
-        if sSeg == 'all':
+        if sseg == 'all':
             for idx in range(self.segN):
                 writefile(self, idx)
-        elif isinstance(sSeg, int):
-            if sSeg <= self.segN:
-                writefile(self, sSeg)
+        elif isinstance(sseg, int):
+            if sseg <= self.segN:
+                writefile(self, sseg)
             else:
                 warnings.warn('seg exceeds the max.')
         else:
-            warnings.warn('Input sSeg is illegal. (int or defalt)')
+            warnings.warn('Input sseg is illegal. (int or defalt)')
 
-    def pst(self,
-            printTxt=False,
-            printExcel=False):
+    def pst(self, printTxt=False, printExcel=False):
         print('-' * 50)
         print('Segment total: {0:02d}'.format(self.segN))
         for idx, istatictis in enumerate(self.segStatis):
@@ -382,23 +410,23 @@ class CaseData:
                     file_name, sheet_name='SEG{:02d}'.format(idx))
             print('Export: {0:s}'.format(file_name))
 
-    def to_mat(self, sSeg=0):
-        if isinstance(sSeg, int):
-            if sSeg <= self.segN:
-                data_dic = {'Data': self.data[sSeg].values,
+    def to_mat(self, sseg=0):
+        if isinstance(sseg, int):
+            if sseg <= self.segN:
+                data_dic = {'Data': self.data[sseg].values,
                             'chInfo': self.chInfo,
                             'Date': self.date,
                             'Nseg': 1,
                             'fs': self.fs,
                             'chN': self.chN,
-                            'Seg_sta': self.segStatis[sSeg],
-                            'SegInfo': self.segInfo[sSeg:sSeg + 1],
+                            'Seg_sta': self.segStatis[sseg],
+                            'SegInfo': self.segInfo[sseg:sseg + 1],
                             'Readme': 'Generated by CaseData from python'
                             }
                 path = os.getcwd()
                 fname = path + '/' + \
-                    os.path.splitext(self.filename)[
-                        0] + 'seg{:02d}.mat'.format(sSeg)
+                    os.path.splitext(self.filename)[0] +\
+                    'seg{:02d}.mat'.format(sseg)
                 sio.savemat(fname, data_dic)
                 print('Export: {0:s}'.format(fname))
             else:
@@ -406,14 +434,15 @@ class CaseData:
         else:
             warnings.warn('Selected segment id is illegal (should be int).')
 
-    def fix_unit(self, c_chN, unit, pInfo=False):
-        self.chInfo['Unit'].loc[c_chN] = unit
+    def fix_unit(self, chIdx, newunit, pInfo=False):
+        """Fix the incorrect unit due to the limitation of the 'out' format"""
+        self.chInfo.loc[chIdx, 'Unit'] = newunit
         if pInfo:
             print('-' * 50)
             print(self.chInfo.to_string(justify='center'))
             print('-' * 50)
 
-    def to_fullscale(self, rho=1.025, lam=60, g=9.807, pInfo=False):
+    def to_fullscale(self, rho=1.025, g=9.807, pInfo=False):
         if self.scale == 'prototype':
             print('The data is already upscaled.')
             return
@@ -423,9 +452,8 @@ class CaseData:
                 print(self.chInfo.to_string(
                     justify='center', columns=['Name', 'Unit']))
             self.rho = rho
-            self.lam = lam
             self.scale = 'prototype'
-            trans_dic = {'kg': ['kN', np.array([g * 0.001, 1.0, 3.0])],
+            transDict = {'kg': ['kN', np.array([g * 0.001, 1.0, 3.0])],
                          'cm': ['m', np.array([0.01, 0.0, 1.0])],
                          'mm': ['m', np.array([0.001, 0.0, 1.0])],
                          'm': ['m', np.array([1, 0.0, 1.0])],
@@ -435,15 +463,15 @@ class CaseData:
                          'N': ['kN', np.array([0.001, 1.0, 3.0])]
                          }
 
-            def findtrans(trans_dic, unit):
+            def findtrans(transDict, unit):
                 unit = unit.lower()
-                if unit in trans_dic:
-                    trans = trans_dic[unit]
+                if unit in transDict:
+                    trans = transDict[unit]
                     return trans
                 elif '/' in unit:
                     unitUpper, unitLower = unit.split('/')
-                    transUpper = findtrans(trans_dic, unitUpper)
-                    transLower = findtrans(trans_dic, unitLower)
+                    transUpper = findtrans(transDict, unitUpper)
+                    transLower = findtrans(transDict, unitLower)
                     trans = [transUpper[0] + '/' +
                              transLower[0], np.array([0.0, 0.0, 0.0])]
                     trans[1][0] = transUpper[1][0] / transLower[1][0]
@@ -457,7 +485,7 @@ class CaseData:
                     transN2 = np.array([])
                     transN3 = np.array([])
                     for idx, uWithDot in enumerate(unitWithDot):
-                        transWithDot = findtrans(trans_dic, uWithDot)
+                        transWithDot = findtrans(transDict, uWithDot)
                         transU.append(transWithDot[0])
                         transN1 = np.append(transN1, transWithDot[1][0])
                         transN2 = np.append(transN2, transWithDot[1][1])
@@ -471,8 +499,8 @@ class CaseData:
                 elif unit[-1].isdigit():
                     n = int(unit[-1])
                     unit = unit[0:-1]
-                    if unit in trans_dic:
-                        trans_temp = trans_dic[unit]
+                    if unit in transDict:
+                        trans_temp = transDict[unit]
                         trans = [trans_temp[0] +
                                  str(n), np.array([1.0, 0.0, 0.0])]
                         trans[1][0] = trans_temp[1][0]**n
@@ -487,30 +515,30 @@ class CaseData:
                         "input unit cannot identified, please check the unit.")
 
             transUnit = []
-            transCoeffunit = np.zeros(self.chN)
-            transCoeffrho = np.zeros(self.chN)
-            transCoefflam = np.zeros(self.chN)
+            transCoeffUnit = np.zeros(self.chN)
+            transCoeffRho = np.zeros(self.chN)
+            transCoeffLam = np.zeros(self.chN)
             for idx, unit in enumerate(self.chInfo['Unit']):
-                trans_temp = findtrans(trans_dic, unit)
+                trans_temp = findtrans(transDict, unit)
                 transUnit.append(trans_temp[0])
-                transCoeffunit[idx] = trans_temp[1][0]
-                transCoeffrho[idx] = trans_temp[1][1]
-                transCoefflam[idx] = trans_temp[1][2]
+                transCoeffUnit[idx] = trans_temp[1][0]
+                transCoeffRho[idx] = trans_temp[1][1]
+                transCoeffLam[idx] = trans_temp[1][2]
             self.chInfo['Unit'] = transUnit
-            self.chInfo['Coeffunit'] = transCoeffunit
-            self.chInfo['Coeffrho'] = transCoeffrho
-            self.chInfo['Coefflam'] = transCoefflam
+            self.chInfo['CoeffUnit'] = transCoeffUnit
+            self.chInfo['CoeffRho'] = transCoeffRho
+            self.chInfo['CoeffLam'] = transCoeffLam
 
-            del self.chInfo['Coef']
 
             if pInfo:
                 print(self.chInfo.to_string(justify='center'))
 
             for idx1 in range(self.segN):
                 for idx2, name in enumerate(self.chInfo['Name']):
-                    C1 = self.chInfo['Coeffunit'].iloc[idx2]
-                    C2 = rho ** self.chInfo['Coeffrho'].iloc[idx2]
-                    C3 = lam ** self.chInfo['Coefflam'].iloc[idx2]
+                    C1 = self.chInfo['CoeffUnit'].iloc[idx2]
+                    C2 = rho ** self.chInfo['CoeffRho'].iloc[idx2]
+                    C3 = self.lam ** self.chInfo['CoeffLam'].iloc[idx2]
                     C = C1 * C2 * C3
                     self.data[idx1][name] *= C
+
             print('The data is upscaled.')
