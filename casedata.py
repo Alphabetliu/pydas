@@ -286,7 +286,8 @@ class CaseData:
         if self.scale == 'model':
             self.chInfo.loc[max(self.chInfo.index) + 1] = [name, unit, 1]
         else:
-            self.chInfo.loc[max(self.chInfo.index) + 1] = [name, unit, 1, 1, 1, 1]
+            self.chInfo.loc[max(self.chInfo.index) +
+                            1] = [name, unit, 1, 1, 0, 0]
         self.segStatis[0].loc[name] = [np.mean(series), np.std(series),
                                        np.amax(series), np.amin(series), unit]
         self.data[0].insert(self.chN, name, series)
@@ -299,7 +300,8 @@ class CaseData:
             print('Channel name does not exist, returning.')
             return
 
-        self.chInfo = self.chInfo.drop(self.chInfo.index[self.chInfo.Name == name])
+        self.chInfo = self.chInfo.drop(
+            self.chInfo.index[self.chInfo.Name == name])
         for iseg in range(self.segN):
             self.segStatis[iseg] = self.segStatis[iseg].drop(name)
             del self.data[iseg][name]
@@ -352,22 +354,24 @@ class CaseData:
     def to_dat(self, sseg='all'):
         def writefile(self, idx):
             path = os.getcwd()
-            file_name = path + '/' + \
+            filename = path + '/' + \
                 os.path.splitext(self.filename)[
                     0] + '_seg{0:02d}.txt'.format(idx)
             comments = '\t'.join(
                 self.chInfo['Name']) + '\n' + '\t'.join(self.chInfo['Unit']) + '\n'
             hearder_fmt_str = 'File: {0:s}, Seg{1:02d}, fs:{2:4d}Hz\nDate: {3:5s} from: {4:8s} to {5:8s}\nNote:{6:s}\n'
             header2write = hearder_fmt_str.format(
-                self.filename, idx, self.fs, self.date, self.segInfo['Start'].iloc[idx], self.segInfo['Stop'].iloc[idx], self.segInfo['Note'].iloc[idx])
+                self.filename, idx, self.fs, self.date,
+                self.segInfo['Start'].iloc[idx], self.segInfo['Stop'].iloc[idx],
+                self.segInfo['Note'].iloc[idx])
             header2write += comments
-            infoFile = open(file_name, 'w')
+            infoFile = open(filename, 'w')
             infoFile.write(header2write)
-            data_2write = self.data[idx].to_string(header=False,
-                                                   index=False, justify='left', float_format='% .5E')
-            infoFile.write(data_2write)
+            data2write = self.data[idx].to_string(header=False,
+                                                  index=False, justify='left', float_format='% .5E')
+            infoFile.write(data2write)
             infoFile.close()
-            print('Export: {0:s}'.format(file_name))
+            print('Export: {0:s}'.format(filename))
 
         if sseg == 'all':
             for idx in range(self.segN):
@@ -426,7 +430,7 @@ class CaseData:
                 path = os.getcwd()
                 fname = path + '/' + \
                     os.path.splitext(self.filename)[0] +\
-                    'seg{:02d}.mat'.format(sseg)
+                    '_seg{:02d}.mat'.format(sseg)
                 sio.savemat(fname, data_dic)
                 print('Export: {0:s}'.format(fname))
             else:
@@ -528,7 +532,6 @@ class CaseData:
             self.chInfo['CoeffUnit'] = transCoeffUnit
             self.chInfo['CoeffRho'] = transCoeffRho
             self.chInfo['CoeffLam'] = transCoeffLam
-
 
             if pInfo:
                 print(self.chInfo.to_string(justify='center'))
