@@ -306,14 +306,24 @@ class CaseData:
             self.segStatis[iseg] = self.segStatis[iseg].drop(name)
             del self.data[iseg][name]
 
-        print(self.chInfo)
-        print(self.segStatis[0])
-        print(self.data[0])
+        # print(self.chInfo)
+        # print(self.segStatis[0])
+        # print(self.data[0])
         # update the number of channels
         if self.data[0].shape[1] == self.chInfo.shape[0] == self.segStatis[0].shape[0]:
             self.chN = self.chInfo.shape[0]
         else:
             raise ValueError("Number of channels does not match!")
+
+    def pickCh(self, chnames):
+        "pick out the channels in chnames and drop the rest"
+
+        for chn in self.data[0].columns:
+            if chn in chnames:
+                print("Pick out Chn. {:s}".format(chn))
+            else:
+                print("Drop Chn. {:s}".format(chn))
+                self.delCh(chn)
 
     def pInfo(self, printTxt=False, printExcel=False):
         print('-' * 50)
