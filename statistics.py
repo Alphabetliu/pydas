@@ -161,5 +161,5 @@ def statisticalana(t, series, h=0, mod='cw'):
 
     # significant values (1/3 exceeding probability)
     ns = n // 3
-    return np.mean(-np.sort(-crests)[:ns]), np.mean(np.sort(troughs)[:ns]),\
+    return np.mean(-np.sort(-crests)[:ns]) + h, np.mean(np.sort(troughs)[:ns]) + h,\
         np.mean(-np.sort(-vpps)[:ns]), np.mean(np.diff(tLevelCrossing))
