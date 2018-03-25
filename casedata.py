@@ -318,12 +318,19 @@ class CaseData:
     def pickCh(self, chnames):
         "pick out the channels in chnames and drop the rest"
 
-        for chn in self.data[0].columns:
-            if chn in chnames:
-                print("Pick out Chn. {:s}".format(chn))
-            else:
-                print("Drop Chn. {:s}".format(chn))
-                self.delCh(chn)
+        for chn in chnames:
+            if chn not in self.data[0].columns:
+                warnings.warn("Ch-{:s} does not exist. Ignor it".format(chn))
+                chnames.remove(chn)
+
+        self.chInfo.set_index('Name', inplace=True)
+        self.chInfo = self.chInfo.loc[chnames]
+        self.chInfo.reset_index(level='Name', inplace=True)
+        self.chN = self.chInfo.shape[0]
+
+        for segi in range(self.segN):
+            self.data[segi] = self.data[segi][chnames]
+            self.segStatis[segi] = self.segStatis[segi].loc[chnames]
 
     def pInfo(self, printTxt=False, printExcel=False):
         print('-' * 50)

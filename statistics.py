@@ -3,7 +3,8 @@
 import warnings
 import numpy as np
 import scipy.signal as spsig
-
+import wafo.objects as wobj
+import wafo.misc as wmisc
 
 def cresti(x, mph=None, mpd=1, threshold=0, edge='rising', kpsh=False,
            valley=False):
@@ -123,3 +124,42 @@ def cresti(x, mph=None, mpd=1, threshold=0, edge='rising', kpsh=False,
         ind = np.sort(ind[~idel])
 
     return ind
+
+
+def statisticalana(t, series, h=0, mod='cw'):
+    '''
+    Return: significant values of crests, troughs, and double peaks,
+            as well as mean level crossing period
+    Parameters:
+    -----------
+    t: time, 1-d array
+    series: data, 1-d array
+    h: level, scalar
+    mod: string, defines type of wave or crossing returned. Possible options are
+        'dw' : downcrossing wave
+        'uw' : upcrossing wave
+        'cw' : crest wave
+        'tw' : trough wave
+        None : All crossings will be returned
+    '''
+    t = np.asarray(t, dtype='float')
+    series = np.asarray(series, dtype='float')
+
+    ts = wobj.mat2timeseries(np.stack((t, series), axis=-1))
+    crestTroughID, crossID = wmisc.findtc(ts.data, h, mod)
+
+    ctp = series[crestTroughID] - h  # crest and trough point
+    crests = ctp[ctp > 0]
+    troughs = ctp[ctp <= 0]
+    if series[crestTroughID[0]] < h:
+        troughs = troughs[1:]
+    n = min(crests.shape[0], troughs.shape[0])
+    vpps = crests[:n] - troughs[:n]
+
+    # mean level crossing period
+    tLevelCrossing = t[crossID[::2]]
+
+    # significant values (1/3 exceeding probability)
+    ns = n // 3
+    return np.mean(-np.sort(-crests)[:ns]), np.mean(np.sort(troughs)[:ns]),\
+        np.mean(-np.sort(-vpps)[:ns]), np.mean(np.diff(tLevelCrossing))

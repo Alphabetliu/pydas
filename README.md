@@ -80,7 +80,7 @@ FDAS主要对单个工况数据进行处理，我们希望基于python开发进�
 - Matplotlib >= 2.1.0
 - Scipy >= 0.19.1
 - PyFFTW >= 0.10.1（用于fft1d）
-- pywafo >= 0.3.1 （用于waveana）
+- pywafo >= 0.3.1 （用于统计值分析和谱分析等功能）
 
 Windows下强烈推荐使用[Anaconda](https://www.anaconda.com)构建Python科学计算环境。
 
