@@ -3,8 +3,7 @@
 import warnings
 import numpy as np
 import scipy.signal as spsig
-import wafo.objects as wobj
-import wafo.misc as wmisc
+
 
 def cresti(x, mph=None, mpd=1, threshold=0, edge='rising', kpsh=False,
            valley=False):
@@ -142,11 +141,14 @@ def statisticalana(t, series, h=0, mod='cw'):
         'tw' : trough wave
         None : All crossings will be returned
     '''
+    from wafo.objects import mat2timeseries
+    from wafo.misc import findtc
+
     t = np.asarray(t, dtype='float')
     series = np.asarray(series, dtype='float')
 
-    ts = wobj.mat2timeseries(np.stack((t, series), axis=-1))
-    crestTroughID, crossID = wmisc.findtc(ts.data, h, mod)
+    ts = mat2timeseries(np.stack((t, series), axis=-1))
+    crestTroughID, crossID = findtc(ts.data, h, mod)
 
     ctp = series[crestTroughID] - h  # crest and trough point
     crests = ctp[ctp > 0]
@@ -163,3 +165,17 @@ def statisticalana(t, series, h=0, mod='cw'):
     ns = n // 3
     return np.mean(-np.sort(-crests)[:ns]) + h, np.mean(np.sort(troughs)[:ns]) + h,\
         np.mean(-np.sort(-vpps)[:ns]), np.mean(np.diff(tLevelCrossing))
+
+
+def pExceed(s):
+    """
+    Calculate Cumulative Distribution of Exceedance Probability of s:
+        P(s > X)
+    Return: cumulative distribution of exceedance probability
+    Parameters: an 1-d array of s
+    """
+
+    s = np.sort(s)
+    p = 1 - 1 / s.shape[0] * np.arange(s.shape[0])
+
+    return s, p
