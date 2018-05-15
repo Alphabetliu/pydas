@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
-# import math
 import warnings
+import math
 import numpy as np
 import scipy.signal as spsig
 import pyfftw
@@ -172,3 +172,57 @@ def smooth(x, wlen, win='hanning', axis=0):
         y = np.convolve(w / w.sum(), s, mode='same')[(wlen - 1):-(wlen - 1)]
 
     return y
+
+
+def fftPeaks(mag, phase, fs=1, n=1, threshold=0.2, P=1):
+    """
+    Calculate the peak value of a fft frequency spectrum,
+    including the amplitude and the phase angle.
+
+    @param: mag - magnitude;
+    @param: phase - phase angle;
+    @param: fs - sampling frequence, default is 1;
+    @param: n - number of peaks to return
+    @param: threshold - (min value of peaks) / (the max peak value)
+    @param: P - parameter, default is 1 (and values other than 1 are not supported
+    currently).
+    ----
+    @return: fr - pear frequence
+    @return: amp - peak amplitude
+    @return: phi - peak phase angle
+    """
+    from pydas.statistics import cresti
+
+    N = (mag.shape[0] - 1) * 2
+
+    df = fs / N
+    # f = np.arange(N / 2 + 1) * df
+
+    peakid = cresti(mag, mph=threshold * np.max(mag), mpd=4, edge='rising')
+    peak = mag[peakid]
+
+    # sort the peaks by magnitude
+    order = np.argsort(-peak)
+    peakid = peakid[order]
+    peak = peak[order]
+
+    nPeaks = min(len(peakid), n)
+
+    fr = np.zeros(nPeaks)
+    amp = np.zeros(nPeaks)
+    phi = np.zeros(nPeaks)
+
+    for i in range(nPeaks):
+        # correcting
+        partial_r = ((P + 1 / 2) * mag[peakid[i]] * (mag[peakid[i] + 1] -
+                                                     mag[peakid[i] - 1]) /
+                     ((mag[peakid[i]] + mag[peakid[i] + 1])
+             * (mag[peakid[i]] + mag[peakid[i] - 1])))
+        fr[i] = (peakid[i] + partial_r) * df
+        Dr = partial_r * (1 / (partial_r**2) - 1 / (partial_r**2 - 1)) *\
+            math.sin(math.pi * partial_r)
+        mr = partial_r - Dr / (2 * abs(Dr))
+        amp[i] = math.pi * peak[i] / abs(Dr)
+        phi[i] = phase[peakid[i]] - math.pi * (mr + 0.5)
+
+    return fr, amp, phi
